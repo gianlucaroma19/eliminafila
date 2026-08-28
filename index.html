@@ -233,8 +233,8 @@
             if(el) el.innerText = val;
         });
 
-       // --- LOGICA CLIENTE ---
-        let alertTriggered = false; // Evita che il suono/vibrazione si ripeta all'infinito ad ogni aggiornamento
+      // --- LOGICA CLIENTE ---
+        let alertInterval = null; // Memorizza il loop di suono e vibrazione
 
         function initClientView() {
             updateClientUI();
@@ -252,54 +252,76 @@
                     document.body.classList.add('flashing');
                     document.getElementById('turn-action-section').classList.remove('hidden');
 
-                    // Attiva suono e vibrazione solo la prima volta che scatta il turno
-                    if (!alertTriggered) {
-                        alertTriggered = true;
-                        triggerAlertNotification();
+                    // Avvia l'allarme continuo se non è già attivo
+                    if (!alertInterval) {
+                        startPersistentAlert();
                     }
                 } else {
                     document.body.classList.remove('flashing');
                     document.getElementById('turn-action-section').classList.add('hidden');
-                    alertTriggered = false; // Reset se cambia il numero
+                    stopPersistentAlert(); // Ferma l'allarme se il numero cambia o si resetta
                 }
             });
         }
 
-        // Funzione per generare il trillo audio e la vibrazione
-        function triggerAlertNotification() {
-            // 1. VIBRAZIONE (Se supportata dal dispositivo: vibra 400ms, pausa 200ms, vibra 400ms)
+        // Funzione per avviare il loop continuo di "Drinnn" e vibrazione
+        function startPersistentAlert() {
+            // Esegue subito il primo squillo
+            triggerDrinnn();
+
+            // Ripete lo squillo ogni 1.5 secondi finché non viene fermato
+            alertInterval = setInterval(() => {
+                triggerDrinnn();
+            }, 1500);
+        }
+
+        // Funzione per fermare l'allarme
+        function stopPersistentAlert() {
+            if (alertInterval) {
+                clearInterval(alertInterval);
+                alertInterval = null;
+            }
+        }
+
+        // Genera il suono "Drinnn" (campanello) e vibrazione prolungata
+        function triggerDrinnn() {
+            // 1. VIBRAZIONE CONTINUA (Vibra per 1 secondo, pausa 300ms)
             if ("vibrate" in navigator) {
                 try {
-                    navigator.vibrate([400, 200, 400, 200, 600]);
+                    navigator.vibrate([300, 100, 300, 100, 300, 100]);
                 } catch (e) {
-                    console.log("Vibrazione non consentita dal browser");
+                    console.log("Vibrazione non consentita");
                 }
             }
 
-            // 2. SUONO DI NOTIFICA (Sintesi audio nativa via browser)
+            // 2. SUONO "DRINNN" TRAMITE WEB AUDIO API (Simulazione squillo meccanico)
             try {
                 const AudioContext = window.AudioContext || window.webkitAudioContext;
                 if (AudioContext) {
                     const ctx = new AudioContext();
                     
-                    // Crea due "beep" sequenziali
-                    playBeep(ctx, 587.33, 0, 0.15);   ت // Nota D5
-                    playBeep(ctx, 880.00, 0.2, 0.25); // Nota A5
+                    // Crea una sequenza rapida di toni alternati per simulare il trillo della campanella
+                    let delay = 0;
+                    for (let i = 0; i < 5; i++) {
+                        playTone(ctx, 1800, delay, 0.08);
+                        playTone(ctx, 2200, delay + 0.08, 0.08);
+                        delay += 0.16;
+                    }
                 }
             } catch (e) {
-                console.log("Audio non supportato o bloccato dalle policy di autoplay");
+                console.log("Audio bloccato dal browser");
             }
         }
 
-        function playBeep(ctx, frequency, startTime, duration) {
+        function playTone(ctx, frequency, startTime, duration) {
             const osc = ctx.createOscillator();
             const gain = ctx.createGain();
             
-            osc.type = 'sine';
+            osc.type = 'sawtooth'; // Onda a sega per un suono più metallico tipo campanello
             osc.frequency.value = frequency;
             
-            gain.gain.setValueAtTime(0.3, ctx.currentTime + startTime);
-            gain.gain.exponentialRampToValueAtTime(0.00001, ctx.currentTime + startTime + duration);
+            gain.gain.setValueAtTime(0.2, ctx.currentTime + startTime);
+            gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + startTime + duration);
             
             osc.connect(gain);
             gain.connect(ctx.destination);
@@ -345,7 +367,7 @@
                     myTicket = snapshot.child('lastTicket').val();
                     localStorage.setItem('my_ticket', myTicket);
                     updateClientUI();
-                    alertTriggered = false; // Reset dello stato allarme per il nuovo ticket
+                    stopPersistentAlert();
                 } else {
                     if(btn) {
                         btn.disabled = false;
@@ -356,6 +378,7 @@
         }
 
         function confirmArrival() {
+            stopPersistentAlert(); // Ferma subito il suono/vibrazione
             alert("Hai confermato la chiamata! Avvicinati allo sportello.");
             localStorage.removeItem('my_ticket');
             myTicket = null;
@@ -364,11 +387,15 @@
 
         function abandonQueue() {
             if(myTicket === null || confirm("Sei sicuro di voler abbandonare il turno o azzerare la scelta?")) {
+                stopPersistentAlert(); // Ferma subito il suono/vibrazione
                 localStorage.removeItem('my_ticket');
                 myTicket = null;
                 location.reload();
             }
         }
+
+//fine LOGICA CLIENTE
+        
     </script>
 </body>
 </html>

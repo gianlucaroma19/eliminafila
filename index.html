@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Eliminafila Web App</title>
-    <!-- Firebase App (compat mode for ease of use) -->
+    <!-- Firebase App (compat mode) -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
     <style>
@@ -143,35 +143,36 @@
             <div class="label">Numero Attuale Chiamato</div>
             <div class="number-display" id="client-called">0</div>
 
-            <div id="ticket-section" style="margin-top: 20px;">
-                <div id="no-ticket">
-                    <button class="btn btn-success" onclick="takeTicket()" style="font-size: 1.2rem; padding: 15px;">PRENDI IL NUMERETTO</button>
-                </div>
-                <div id="has-ticket" class="hidden">
-                    <div class="label">Il Tuo Numeretto</div>
-                    <div style="font-size: 3rem; font-weight: bold; color: var(--secondary);" id="client-myticket">-</div>
-                    
-                    <div id="action-buttons" class="hidden" style="margin-top: 15px;">
-                        <p style="color: var(--danger); font-weight: bold;">È IL TUO TURNO!</p>
-                        <button class="btn btn-success" onclick="confirmArrival()">Conferma Arrivo</button>
-                        <button class="btn btn-danger" onclick="abandonQueue()">Abbandona Attesa</button>
-                    </div>
-                </div>
+            <hr style="margin: 20px 0; border:0; border-top:1px solid #e2e8f0;">
+
+            <!-- IL TUO NUMERETTO (Sempre visibile) -->
+            <div class="label">Il Tuo Numeretto</div>
+            <div style="font-size: 3rem; font-weight: bold; color: var(--secondary); margin: 5px 0;" id="client-myticket">-</div>
+
+            <!-- TASTO PER PRENDERE IL TICKET (Visibile solo se non ha il ticket) -->
+            <div id="no-ticket-section" style="margin-top: 15px;">
+                <button class="btn btn-success" onclick="takeTicket()" style="font-size: 1.1rem; padding: 12px;">PRENDI IL NUMERETTO</button>
+            </div>
+
+            <!-- SEZIONE ATTIVA QUANDO È IL SUO TURNO -->
+            <div id="turn-action-section" class="hidden" style="margin-top: 15px;">
+                <p style="color: var(--danger); font-weight: bold; margin-bottom: 5px;">È IL TUO TURNO!</p>
+                <button class="btn btn-success" onclick="confirmArrival()">Conferma Arrivo</button>
+            </div>
+
+            <!-- PULSANTE ABBANDONA ATTESA (Sempre visibile) -->
+            <div style="margin-top: 15px;">
+                <button class="btn btn-danger" onclick="abandonQueue()" style="background-color: #64748b; font-size: 0.9rem; padding: 8px;">Abbandona Attesa / Cancella</button>
             </div>
         </div>
     </div>
 
     <script>
-        // CONFIGURAZIONE FIREBASE (Usa un DB di test pubblico o inserisci il tuo)
+        // CONFIGURAZIONE FIREBASE (Inserisci il tuo databaseURL personale)
         const firebaseConfig = {
-            databaseURL: "https://mioeliminafila-default-rtdb.europe-west1.firebasedatabase.app"
-
-
-
-
+            databaseURL: "https://tuo-progetto-default-rtdb.europe-west1.firebasedatabase.app"
         };
 
-        // Inizializzazione Firebase
         if (!firebase.apps.length) {
             firebase.initializeApp(firebaseConfig);
         }
@@ -193,7 +194,6 @@
             }
         }
 
-        // Controllo automatico tramite URL (es. ?role=master o ?role=client)
         window.onload = function() {
             const urlParams = new URLSearchParams(window.location.search);
             const role = urlParams.get('role');
@@ -227,57 +227,57 @@
             }
         }
 
-        // Ascolto database per Master
         db.ref('queue/current').on('value', snapshot => {
             let val = snapshot.val() || 0;
             const el = document.getElementById('master-current');
             if(el) el.innerText = val;
         });
 
-
         // --- LOGICA CLIENTE ---
         function initClientView() {
-            if (myTicket !== null) {
-                document.getElementById('no-ticket').classList.add('hidden');
-                document.getElementById('has-ticket').classList.remove('hidden');
-                document.getElementById('client-myticket').innerText = myTicket;
-            }
+            updateClientUI();
 
-           // Ascolto numero chiamato con controllo forzato
+            // Ascolto numero chiamato in tempo reale
             db.ref('queue/current').on('value', snapshot => {
                 let called = snapshot.val();
-                if (called === null || called === undefined) {
-                    called = 0; // Valore di sicurezza se il DB è vuoto
-                }
-                
-                const el = document.getElementById('client-called');
-                if (el) {
-                    el.innerText = called;
-                }
+                if (called === null || called === undefined) called = 0;
 
-                // Controllo corrispondenza
+                const el = document.getElementById('client-called');
+                if (el) el.innerText = called;
+
+                // Controllo corrispondenza (Turno arrivato)
                 if (myTicket !== null && Number(called) === Number(myTicket)) {
                     document.body.classList.add('flashing');
-                    document.getElementById('action-buttons').classList.remove('hidden');
+                    document.getElementById('turn-action-section').classList.remove('hidden');
                 } else {
                     document.body.classList.remove('flashing');
-                    document.getElementById('action-buttons').classList.add('hidden');
+                    document.getElementById('turn-action-section').classList.add('hidden');
                 }
             });
         }
 
+        function updateClientUI() {
+            const ticketDisplay = document.getElementById('client-myticket');
+            const noTicketSection = document.getElementById('no-ticket-section');
+
+            if (myTicket !== null && !isNaN(myTicket)) {
+                ticketDisplay.innerText = myTicket;
+                noTicketSection.classList.add('hidden');
+            } else {
+                ticketDisplay.innerText = "-";
+                noTicketSection.classList.remove('hidden');
+            }
+        }
+
         function takeTicket() {
-            const ticketRef = db.ref('queue/lastTicket');
-            ticketRef.transaction(current => {
+            db.ref('queue/lastTicket').transaction(current => {
                 let next = (current || 0) + 1;
                 return next;
             }, (error, committed, snapshot) => {
-                if (error) {
-                    console.error("Errore transazione:", error);
-                } else if (committed) {
+                if (committed) {
                     myTicket = snapshot.val();
                     localStorage.setItem('my_ticket', myTicket);
-                    initClientView();
+                    updateClientUI();
                 }
             });
         }
@@ -290,7 +290,7 @@
         }
 
         function abandonQueue() {
-            if(confirm("Sei sicuro di voler abbandonare il turno?")) {
+            if(myTicket === null || confirm("Sei sicuro di voler abbandonare il turno o azzerare la scelta?")) {
                 localStorage.removeItem('my_ticket');
                 myTicket = null;
                 location.reload();

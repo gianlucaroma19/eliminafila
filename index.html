@@ -55,7 +55,7 @@
             justify-content: center;
             align-items: center;
         }
-.card {
+        .card {
             background: #ffffff;
             border-radius: 12px;
             padding: 25px;
@@ -63,20 +63,19 @@
             width: 100%;
             text-align: center;
             margin-bottom: 20px;
+            transition: background-color 0.2s; /* Transizione morbida */
         }
         .number-display {
             font-size: 4rem;
             font-weight: bold;
-            color: #60a5fa;
+            color: var(--primary);
             margin: 10px 0;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.6);
         }
         .label {
             font-size: 0.9rem;
             text-transform: uppercase;
             letter-spacing: 1px;
-            color: #e2e8f0;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+            color: #64748b;
         }
         .btn {
             background-color: var(--secondary);
@@ -99,13 +98,35 @@
             gap: 10px;
             margin-top: 15px;
         }
+        
+        /* --- IMMAGINE LOGO CREPES --- */
+        #logo-crepes {
+            width: 90px;
+            height: 90px;
+            object-fit: cover;
+            margin: 0 auto 15px auto;
+            display: block;
+            border-radius: 8px;
+        }
+
+        /* --- EFFETTI DI LAMPEGGIO --- */
         .flashing {
             animation: pulse-flash 0.8s infinite alternate;
         }
         @keyframes pulse-flash {
             0% { background-color: var(--bg); }
-            100% { background-color: #ef4444; } /* Lampeggio rosso/bianco a schermo intero */
+            100% { background-color: #ef4444; } /* Rosso a schermo intero */
         }
+        
+        /* Quando scatta il lampeggio, nascondiamo l'immagine e rendiamo il rettangolo bianco trasparente */
+        body.flashing #logo-crepes {
+            opacity: 0;
+        }
+        body.flashing .card {
+            background-color: transparent;
+            box-shadow: none;
+        }
+
         .hidden { display: none !important; }
         input, select {
             width: 100%;
@@ -142,7 +163,7 @@
                 <button class="btn btn-success" onclick="updateMaster(1)">+ Ticket</button>
             </div>
 
-            <hr style="margin: 20px 0; border:0; border-top:1px solid rgba(255,255,255,0.3);">
+            <hr style="margin: 20px 0; border:0; border-top:1px solid #e2e8f0;">
             
             <div class="label">Impostazione Rapida</div>
             <input type="number" id="custom-number" placeholder="Inserisci numero...">
@@ -152,15 +173,19 @@
 
         <!-- SCHERMATA CLIENTE -->
         <div id="view-client" class="card hidden">
+            
+            <!-- LA TUA PICCOLA IMMAGINE QUADRATA -->
+            <img src="logo.png" id="logo-crepes" alt="Logo Crepes">
+
             <div class="label">Numero Attuale Chiamato</div>
             <div class="number-display" id="client-called">0</div>
 
-            <hr style="margin: 20px 0; border:0; border-top:1px solid rgba(255,255,255,0.3);">
+            <hr style="margin: 20px 0; border:0; border-top:1px solid #e2e8f0;">
 
             <!-- IL TUO NUMERETTO -->
             <div class="label">Il Tuo Numeretto</div>
-           
             <div style="font-size: 3rem; font-weight: bold; color: var(--secondary); margin: 5px 0;" id="client-myticket">-</div>
+
             <!-- TASTO PER PRENDERE IL TICKET -->
             <div id="no-ticket-section" style="margin-top: 15px;">
                 <button class="btn btn-success" onclick="takeTicket()" style="font-size: 1.1rem; padding: 12px;">PRENDI IL NUMERETTO</button>
@@ -168,9 +193,7 @@
 
             <!-- SEZIONE ATTIVA QUANDO È IL SUO TURNO -->
             <div id="turn-action-section" class="hidden" style="margin-top: 15px;">
-                
                 <p style="color: #facc15; font-weight: bold; font-size: 1.8rem; margin-bottom: 10px; text-shadow: 2px 2px 4px rgba(0,0,0,0.8);">È IL TUO TURNO!</p>
-                
                 <button class="btn btn-success" onclick="confirmArrival()">Conferma Arrivo</button>
             </div>
 

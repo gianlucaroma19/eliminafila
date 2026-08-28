@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eliminafila Web App</title>
+    <!-- Firebase App (compat mode for ease of use) -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <style>
+        :root {
+            --primary: #1e3a8a;
+            --secondary: #2563eb;
+            --success: #16a34a;
+            --danger: #dc2626;
+            --bg: #f8fafc;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            color: #1e293b;
+        }
+        header {
+            background-color: var(--primary);
+            color: white;
+            padding: 15px;
+            text-align: center;
+            font-size: 1.2rem;
+            font-weight: bold;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .container {
+            flex: 1;
+            max-width: 500px;
+            margin: 0 auto;
+            padding: 20px;
+            width: 100%;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+            width: 100%;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .number-display {
+            font-size: 4rem;
+            font-weight: bold;
+            color: var(--primary);
+            margin: 10px 0;
+        }
+        .label {
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #64748b;
+        }
+        .btn {
+            background-color: var(--secondary);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            width: 100%;
+            margin-top: 10px;
+            transition: background 0.2s;
+        }
+        .btn:active { transform: scale(0.98); }
+        .btn-success { background-color: var(--success); }
+        .btn-danger { background-color: var(--danger); }
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .flashing {
+            animation: pulse-flash 0.8s infinite alternate;
+        }
+        @keyframes pulse-flash {
+            0% { background-color: #ffffff; }
+            100% { background-color: #fef08a; }
+        }
+        .hidden { display: none !important; }
+        input, select {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 1rem;
+        }
+    </style>
+</head>
+<body>
+
+    <header id="header-title">Gestione Code</header>
+
+    <div class="container">
+        <!-- SELEZIONE RUOLO (Se non specificato nell'URL) -->
+        <div id="view-selector" class="card">
+            <h2>Seleziona Modalità</h2>
+            <p>Come desideri aprire questa pagina?</p>
+            <button class="btn" onclick="setRole('master')">Modalità Master (Sportello)</button>
+            <button class="btn" style="background-color: var(--success); margin-top: 10px;" onclick="setRole('client')">Modalità Cliente (Utente)</button>
+        </div>
+
+        <!-- SCHERMATA MASTER -->
+        <div id="view-master" class="card hidden">
+            <div class="label">Numero Attuale in Servizio</div>
+            <div class="number-display" id="master-current">0</div>
+            
+            <div class="btn-group">
+                <button class="btn btn-danger" onclick="updateMaster(-1)">- Ticket</button>
+                <button class="btn btn-success" onclick="updateMaster(1)">+ Ticket</button>
+            </div>
+
+            <hr style="margin: 20px 0; border:0; border-top:1px solid #e2e8f0;">
+            
+            <div class="label">Impostazione Rapida</div>
+            <input type="number" id="custom-number" placeholder="Inserisci numero...">
+            <button class="btn" onclick="setCustomNumber()">Imposta Numero</button>
+            <button class="btn btn-danger" onclick="resetQueue()" style="margin-top: 10px; background-color: #64748b;">Azzera Contatore</button>
+        </div>
+
+        <!-- SCHERMATA CLIENTE -->
+        <div id="view-client" class="card">
+            <div class="label">Numero Attuale Chiamato</div>
+            <div class="number-display" id="client-called">0</div>
+
+            <div id="ticket-section" style="margin-top: 20px;">
+                <div id="no-ticket">
+                    <button class="btn btn-success" onclick="takeTicket()" style="font-size: 1.2rem; padding: 15px;">PRENDI IL NUMERETTO</button>
+                </div>
+                <div id="has-ticket" class="hidden">
+                    <div class="label">Il Tuo Numeretto</div>
+                    <div style="font-size: 3rem; font-weight: bold; color: var(--secondary);" id="client-myticket">-</div>
+                    
+                    <div id="action-buttons" class="hidden" style="margin-top: 15px;">
+                        <p style="color: var(--danger); font-weight: bold;">È IL TUO TURNO!</p>
+                        <button class="btn btn-success" onclick="confirmArrival()">Conferma Arrivo</button>
+                        <button class="btn btn-danger" onclick="abandonQueue()">Abbandona Attesa</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // CONFIGURAZIONE FIREBASE (Usa un DB di test pubblico o inserisci il tuo)
+        const firebaseConfig = {
+            databaseURL: "https://eliminafila-demo-default-rtdb.europe-west1.firebasedatabase.app"
+        };
+
+        // Inizializzazione Firebase
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const db = firebase.database();
+
+        let currentRole = null;
+        let myTicket = localStorage.getItem('my_ticket') ? parseInt(localStorage.getItem('my_ticket')) : null;
+
+        function setRole(role) {
+            currentRole = role;
+            document.getElementById('view-selector').classList.add('hidden');
+            if (role === 'master') {
+                document.getElementById('view-master').classList.remove('hidden');
+                document.getElementById('header-title').innerText = "Gestione Code - MASTER";
+            } else {
+                document.getElementById('view-client').classList.remove('hidden');
+                document.getElementById('header-title').innerText = "Gestione Code - CLIENTE";
+                initClientView();
+            }
+        }
+
+        // Controllo automatico tramite URL (es. ?role=master o ?role=client)
+        window.onload = function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const role = urlParams.get('role');
+            if (role === 'master' || role === 'client') {
+                setRole(role);
+            }
+        };
+
+        // --- LOGICA MASTER ---
+        function updateMaster(change) {
+            db.ref('queue/current').transaction(current => {
+                let val = (current || 0) + change;
+                return val < 0 ? 0 : val;
+            });
+        }
+
+        function setCustomNumber() {
+            let val = parseInt(document.getElementById('custom-number').value);
+            if (!isNaN(val) && val >= 0) {
+                db.ref('queue/current').set(val);
+                document.getElementById('custom-number').value = '';
+            }
+        }
+
+        function resetQueue() {
+            if(confirm("Vuoi azzerare il contatore e l'ultimo ticket emesso?")) {
+                db.ref('queue/current').set(0);
+                db.ref('queue/lastTicket').set(0);
+                localStorage.removeItem('my_ticket');
+                location.reload();
+            }
+        }
+
+        // Ascolto database per Master
+        db.ref('queue/current').on('value', snapshot => {
+            let val = snapshot.val() || 0;
+            const el = document.getElementById('master-current');
+            if(el) el.innerText = val;
+        });
+
+
+        // --- LOGICA CLIENTE ---
+        function initClientView() {
+            if (myTicket !== null) {
+                document.getElementById('no-ticket').classList.add('hidden');
+                document.getElementById('has-ticket').classList.remove('hidden');
+                document.getElementById('client-myticket').innerText = myTicket;
+            }
+
+            // Ascolto numero chiamato
+            db.ref('queue/current').on('value', snapshot => {
+                let called = snapshot.val() || 0;
+                const el = document.getElementById('client-called');
+                if(el) el.innerText = called;
+
+                // Controllo corrispondenza
+                if (myTicket !== null && called === myTicket) {
+                    document.body.classList.add('flashing');
+                    document.getElementById('action-buttons').classList.remove('hidden');
+                } else {
+                    document.body.classList.remove('flashing');
+                    document.getElementById('action-buttons').classList.add('hidden');
+                }
+            });
+        }
+
+        function takeTicket() {
+            db.ref('queue/lastTicket').transaction(current => {
+                let next = (current || 0) + 1;
+                return next;
+            }, (error, committed, snapshot) => {
+                if (committed) {
+                    myTicket = snapshot.val();
+                    localStorage.setItem('my_ticket', myTicket);
+                    initClientView();
+                }
+            });
+        }
+
+        function confirmArrival() {
+            alert("Hai confermato la chiamata! Avvicinati allo sportello.");
+            localStorage.removeItem('my_ticket');
+            myTicket = null;
+            location.reload();
+        }
+
+        function abandonQueue() {
+            if(confirm("Sei sicuro di voler abbandonare il turno?")) {
+                localStorage.removeItem('my_ticket');
+                myTicket = null;
+                location.reload();
+            }
+        }
+    </script>
+</body>
+</html>

@@ -233,7 +233,9 @@
             if(el) el.innerText = val;
         });
 
-        // --- LOGICA CLIENTE ---
+       // --- LOGICA CLIENTE ---
+        let alertTriggered = false; // Evita che il suono/vibrazione si ripeta all'infinito ad ogni aggiornamento
+
         function initClientView() {
             updateClientUI();
 
@@ -249,11 +251,61 @@
                 if (myTicket !== null && Number(called) === Number(myTicket)) {
                     document.body.classList.add('flashing');
                     document.getElementById('turn-action-section').classList.remove('hidden');
+
+                    // Attiva suono e vibrazione solo la prima volta che scatta il turno
+                    if (!alertTriggered) {
+                        alertTriggered = true;
+                        triggerAlertNotification();
+                    }
                 } else {
                     document.body.classList.remove('flashing');
                     document.getElementById('turn-action-section').classList.add('hidden');
+                    alertTriggered = false; // Reset se cambia il numero
                 }
             });
+        }
+
+        // Funzione per generare il trillo audio e la vibrazione
+        function triggerAlertNotification() {
+            // 1. VIBRAZIONE (Se supportata dal dispositivo: vibra 400ms, pausa 200ms, vibra 400ms)
+            if ("vibrate" in navigator) {
+                try {
+                    navigator.vibrate([400, 200, 400, 200, 600]);
+                } catch (e) {
+                    console.log("Vibrazione non consentita dal browser");
+                }
+            }
+
+            // 2. SUONO DI NOTIFICA (Sintesi audio nativa via browser)
+            try {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (AudioContext) {
+                    const ctx = new AudioContext();
+                    
+                    // Crea due "beep" sequenziali
+                    playBeep(ctx, 587.33, 0, 0.15);   ت // Nota D5
+                    playBeep(ctx, 880.00, 0.2, 0.25); // Nota A5
+                }
+            } catch (e) {
+                console.log("Audio non supportato o bloccato dalle policy di autoplay");
+            }
+        }
+
+        function playBeep(ctx, frequency, startTime, duration) {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            
+            osc.type = 'sine';
+            osc.frequency.value = frequency;
+            
+            gain.gain.setValueAtTime(0.3, ctx.currentTime + startTime);
+            gain.gain.exponentialRampToValueAtTime(0.00001, ctx.currentTime + startTime + duration);
+            
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            
+            osc.start(ctx.currentTime + startTime);
+            osc.stop(ctx.currentTime + startTime + duration);
         }
 
         function updateClientUI() {
@@ -270,7 +322,6 @@
         }
 
         function takeTicket() {
-            // Disabilita subito il tasto per evitare doppi clic
             const btn = document.querySelector('#no-ticket-section button');
             if(btn) {
                 btn.disabled = true;
@@ -279,26 +330,22 @@
 
             const queueRef = db.ref('queue');
             queueRef.transaction(data => {
-                // Se la coda non esiste ancora, inizializzala
                 if (!data) {
                     data = { current: 0, lastTicket: 0 };
                 }
 
                 let current = data.current || 0;
                 let last = data.lastTicket || 0;
-
-                // Regola: Il prossimo ticket deve essere almeno il numero attuale + 1,
-                // oppure l'ultimo emesso + 1 (prendendo il maggiore tra i due).
                 let nextTicket = Math.max(current + 1, last + 1);
 
                 data.lastTicket = nextTicket;
                 return data;
             }, (error, committed, snapshot) => {
                 if (committed) {
-                    // Recupera il valore appena assegnato
                     myTicket = snapshot.child('lastTicket').val();
                     localStorage.setItem('my_ticket', myTicket);
                     updateClientUI();
+                    alertTriggered = false; // Reset dello stato allarme per il nuovo ticket
                 } else {
                     if(btn) {
                         btn.disabled = false;

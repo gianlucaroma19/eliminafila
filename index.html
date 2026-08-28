@@ -13,11 +13,14 @@
             --secondary: #2563eb;
             --success: #16a34a;
             --danger: #dc2626;
-            --bg: #f8fafc;
         }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: var(--bg);
+            /* SFONDO CON IMMAGINE E VELatura SCURA PER LEGGIBILITÀ */
+            background: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), 
+                /*/QUI LINK A IMMAGINE
+                        url('https://unsplash.com/it/foto/un-piatto-di-frittelle-con-banane-e-fragole-PUZ-gB_higs') no-repeat center center fixed;
+            background-size: cover;
             margin: 0;
             padding: 0;
             display: flex;
@@ -56,10 +59,11 @@
             align-items: center;
         }
         .card {
-            background: white;
+            background: rgba(255, 255, 255, 0.95); /* Leggermente trasparente per fondersi con lo sfondo */
+            backdrop-filter: blur(5px);
             border-radius: 12px;
             padding: 25px;
-            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.2);
             width: 100%;
             text-align: center;
             margin-bottom: 20px;
@@ -101,8 +105,8 @@
             animation: pulse-flash 0.8s infinite alternate;
         }
         @keyframes pulse-flash {
-            0% { background-color: #ffffff; }
-            100% { background-color: #ef4444; } /* Rosso ben visibile */
+            0% { background-color: rgba(255, 255, 255, 0.95); }
+            100% { background-color: #ef4444; } /* Rosso lampeggiante */
         }
         .hidden { display: none !important; }
         input, select {
@@ -122,7 +126,7 @@
     <div id="sub-header-title" class="sub-header hidden">STAND CREPES</div>
 
     <div class="container">
-        <!-- SELEZIONE RUOLO (Se non specificato nell'URL) -->
+        <!-- SELEZIONE RUOLO -->
         <div id="view-selector" class="card">
             <h2>Seleziona Modalità</h2>
             <p>Come desideri aprire questa pagina?</p>
@@ -155,11 +159,11 @@
 
             <hr style="margin: 20px 0; border:0; border-top:1px solid #e2e8f0;">
 
-            <!-- IL TUO NUMERETTO (Sempre visibile) -->
+            <!-- IL TUO NUMERETTO -->
             <div class="label">Il Tuo Numeretto</div>
             <div style="font-size: 3rem; font-weight: bold; color: var(--secondary); margin: 5px 0;" id="client-myticket">-</div>
 
-            <!-- TASTO PER PRENDERE IL TICKET (Visibile solo se non ha il ticket) -->
+            <!-- TASTO PER PRENDERE IL TICKET -->
             <div id="no-ticket-section" style="margin-top: 15px;">
                 <button class="btn btn-success" onclick="takeTicket()" style="font-size: 1.1rem; padding: 12px;">PRENDI IL NUMERETTO</button>
             </div>
@@ -170,7 +174,7 @@
                 <button class="btn btn-success" onclick="confirmArrival()">Conferma Arrivo</button>
             </div>
 
-            <!-- PULSANTE ABBANDONA ATTESA (Sempre visibile) -->
+            <!-- PULSANTE ABBANDONA ATTESA -->
             <div style="margin-top: 15px;">
                 <button class="btn btn-danger" onclick="abandonQueue()" style="background-color: #64748b; font-size: 0.9rem; padding: 8px;">Abbandona Attesa / Cancella</button>
             </div>
@@ -178,7 +182,6 @@
     </div>
 
     <script>
-        // CONFIGURAZIONE FIREBASE (Il tuo database personale)
         const firebaseConfig = {
             databaseURL: "https://mioeliminafila-default-rtdb.europe-west1.firebasedatabase.app"
         };
@@ -215,7 +218,6 @@
             }
         };
 
-        // --- LOGICA MASTER ---
         function updateMaster(change) {
             db.ref('queue/current').transaction(current => {
                 let val = (current || 0) + change;
@@ -246,11 +248,9 @@
             if(el) el.innerText = val;
         });
 
-        // --- LOGICA CLIENTE ---
         function initClientView() {
             updateClientUI();
 
-            // Ascolto numero chiamato in tempo reale
             db.ref('queue/current').on('value', snapshot => {
                 let called = snapshot.val();
                 if (called === null || called === undefined) called = 0;
@@ -258,7 +258,6 @@
                 const el = document.getElementById('client-called');
                 if (el) el.innerText = called;
 
-                // Controllo corrispondenza (Turno arrivato)
                 if (myTicket !== null && Number(called) === Number(myTicket)) {
                     document.body.classList.add('flashing');
                     document.getElementById('turn-action-section').classList.remove('hidden');
@@ -292,9 +291,7 @@
             if ("vibrate" in navigator) {
                 try {
                     navigator.vibrate([300, 100, 300, 100, 300, 100]);
-                } catch (e) {
-                    console.log("Vibrazione non consentita");
-                }
+                } catch (e) {}
             }
 
             try {
@@ -308,9 +305,7 @@
                         delay += 0.16;
                     }
                 }
-            } catch (e) {
-                console.log("Audio bloccato dal browser");
-            }
+            } catch (e) {}
         }
 
         function playTone(ctx, frequency, startTime, duration) {

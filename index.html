@@ -243,14 +243,20 @@
                 document.getElementById('client-myticket').innerText = myTicket;
             }
 
-            // Ascolto numero chiamato
+           // Ascolto numero chiamato con controllo forzato
             db.ref('queue/current').on('value', snapshot => {
-                let called = snapshot.val() || 0;
+                let called = snapshot.val();
+                if (called === null || called === undefined) {
+                    called = 0; // Valore di sicurezza se il DB è vuoto
+                }
+                
                 const el = document.getElementById('client-called');
-                if(el) el.innerText = called;
+                if (el) {
+                    el.innerText = called;
+                }
 
                 // Controllo corrispondenza
-                if (myTicket !== null && called === myTicket) {
+                if (myTicket !== null && Number(called) === Number(myTicket)) {
                     document.body.classList.add('flashing');
                     document.getElementById('action-buttons').classList.remove('hidden');
                 } else {

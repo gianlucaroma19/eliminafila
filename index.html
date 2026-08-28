@@ -34,6 +34,15 @@
             font-weight: bold;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
+        .sub-header {
+            background-color: #3b82f6;
+            color: white;
+            padding: 8px;
+            text-align: center;
+            font-size: 1rem;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
         .container {
             flex: 1;
             max-width: 500px;
@@ -110,6 +119,7 @@
 <body>
 
     <header id="header-title">Gestione Code</header>
+    <div id="sub-header-title" class="sub-header hidden">STAND CREPES</div>
 
     <div class="container">
         <!-- SELEZIONE RUOLO (Se non specificato nell'URL) -->
@@ -139,7 +149,7 @@
         </div>
 
         <!-- SCHERMATA CLIENTE -->
-        <div id="view-client" class="card">
+        <div id="view-client" class="card hidden">
             <div class="label">Numero Attuale Chiamato</div>
             <div class="number-display" id="client-called">0</div>
 
@@ -168,7 +178,7 @@
     </div>
 
     <script>
-        // CONFIGURAZIONE FIREBASE (Inserisci il tuo databaseURL personale)
+        // CONFIGURAZIONE FIREBASE (Il tuo database personale)
         const firebaseConfig = {
             databaseURL: "https://mioeliminafila-default-rtdb.europe-west1.firebasedatabase.app"
         };
@@ -180,6 +190,7 @@
 
         let currentRole = null;
         let myTicket = localStorage.getItem('my_ticket') ? parseInt(localStorage.getItem('my_ticket')) : null;
+        let alertInterval = null;
 
         function setRole(role) {
             currentRole = role;
@@ -187,9 +198,11 @@
             if (role === 'master') {
                 document.getElementById('view-master').classList.remove('hidden');
                 document.getElementById('header-title').innerText = "Gestione Code - MASTER";
+                document.getElementById('sub-header-title').classList.add('hidden');
             } else {
                 document.getElementById('view-client').classList.remove('hidden');
                 document.getElementById('header-title').innerText = "Gestione Code - CLIENTE";
+                document.getElementById('sub-header-title').classList.remove('hidden');
                 initClientView();
             }
         }
@@ -233,11 +246,7 @@
             if(el) el.innerText = val;
         });
 
-        
-        
         // --- LOGICA CLIENTE ---
-        let alertInterval = null; // Memorizza il loop di suono e vibrazione
-
         function initClientView() {
             updateClientUI();
 
@@ -254,30 +263,24 @@
                     document.body.classList.add('flashing');
                     document.getElementById('turn-action-section').classList.remove('hidden');
 
-                    // Avvia l'allarme continuo se non è già attivo
                     if (!alertInterval) {
                         startPersistentAlert();
                     }
                 } else {
                     document.body.classList.remove('flashing');
                     document.getElementById('turn-action-section').classList.add('hidden');
-                    stopPersistentAlert(); // Ferma l'allarme se il numero cambia o si resetta
+                    stopPersistentAlert();
                 }
             });
         }
 
-        // Funzione per avviare il loop continuo di "Drinnn" e vibrazione
         function startPersistentAlert() {
-            // Esegue subito il primo squillo
             triggerDrinnn();
-
-            // Ripete lo squillo ogni 1.5 secondi finché non viene fermato
             alertInterval = setInterval(() => {
                 triggerDrinnn();
             }, 1500);
         }
 
-        // Funzione per fermare l'allarme
         function stopPersistentAlert() {
             if (alertInterval) {
                 clearInterval(alertInterval);
@@ -285,9 +288,7 @@
             }
         }
 
-        // Genera il suono "Drinnn" (campanello) e vibrazione prolungata
         function triggerDrinnn() {
-            // 1. VIBRAZIONE CONTINUA (Vibra per 1 secondo, pausa 300ms)
             if ("vibrate" in navigator) {
                 try {
                     navigator.vibrate([300, 100, 300, 100, 300, 100]);
@@ -296,13 +297,10 @@
                 }
             }
 
-            // 2. SUONO "DRINNN" TRAMITE WEB AUDIO API (Simulazione squillo meccanico)
             try {
                 const AudioContext = window.AudioContext || window.webkitAudioContext;
                 if (AudioContext) {
                     const ctx = new AudioContext();
-                    
-                    // Crea una sequenza rapida di toni alternati per simulare il trillo della campanella
                     let delay = 0;
                     for (let i = 0; i < 5; i++) {
                         playTone(ctx, 1800, delay, 0.08);
@@ -319,7 +317,7 @@
             const osc = ctx.createOscillator();
             const gain = ctx.createGain();
             
-            osc.type = 'sawtooth'; // Onda a sega per un suono più metallico tipo campanello
+            osc.type = 'sawtooth';
             osc.frequency.value = frequency;
             
             gain.gain.setValueAtTime(0.2, ctx.currentTime + startTime);
@@ -380,7 +378,7 @@
         }
 
         function confirmArrival() {
-            stopPersistentAlert(); // Ferma subito il suono/vibrazione
+            stopPersistentAlert();
             alert("Hai confermato la chiamata! Avvicinati allo sportello.");
             localStorage.removeItem('my_ticket');
             myTicket = null;
@@ -389,15 +387,12 @@
 
         function abandonQueue() {
             if(myTicket === null || confirm("Sei sicuro di voler abbandonare il turno o azzerare la scelta?")) {
-                stopPersistentAlert(); // Ferma subito il suono/vibrazione
+                stopPersistentAlert();
                 localStorage.removeItem('my_ticket');
                 myTicket = null;
                 location.reload();
             }
         }
-
-
-        //LOGICA CLIENTE fine
     </script>
 </body>
 </html>

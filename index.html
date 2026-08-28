@@ -261,11 +261,14 @@
         }
 
         function takeTicket() {
-            db.ref('queue/lastTicket').transaction(current => {
+            const ticketRef = db.ref('queue/lastTicket');
+            ticketRef.transaction(current => {
                 let next = (current || 0) + 1;
                 return next;
             }, (error, committed, snapshot) => {
-                if (committed) {
+                if (error) {
+                    console.error("Errore transazione:", error);
+                } else if (committed) {
                     myTicket = snapshot.val();
                     localStorage.setItem('my_ticket', myTicket);
                     initClientView();

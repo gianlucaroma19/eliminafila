@@ -270,14 +270,40 @@
         }
 
         function takeTicket() {
-            db.ref('queue/lastTicket').transaction(current => {
-                let next = (current || 0) + 1;
-                return next;
+            // Disabilita subito il tasto per evitare doppi clic
+            const btn = document.querySelector('#no-ticket-section button');
+            if(btn) {
+                btn.disabled = true;
+                btn.innerText = "Attendere...";
+            }
+
+            const queueRef = db.ref('queue');
+            queueRef.transaction(data => {
+                // Se la coda non esiste ancora, inizializzala
+                if (!data) {
+                    data = { current: 0, lastTicket: 0 };
+                }
+
+                let current = data.current || 0;
+                let last = data.lastTicket || 0;
+
+                // Regola: Il prossimo ticket deve essere almeno il numero attuale + 1,
+                // oppure l'ultimo emesso + 1 (prendendo il maggiore tra i due).
+                let nextTicket = Math.max(current + 1, last + 1);
+
+                data.lastTicket = nextTicket;
+                return data;
             }, (error, committed, snapshot) => {
                 if (committed) {
-                    myTicket = snapshot.val();
+                    // Recupera il valore appena assegnato
+                    myTicket = snapshot.child('lastTicket').val();
                     localStorage.setItem('my_ticket', myTicket);
                     updateClientUI();
+                } else {
+                    if(btn) {
+                        btn.disabled = false;
+                        btn.innerText = "PRENDI IL NUMERETTO";
+                    }
                 }
             });
         }

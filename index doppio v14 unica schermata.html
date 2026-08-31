@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eliminafila Multi-Stand Web App</title>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <style>
+        :root {
+            --primary: #1e3a8a;
+            --secondary: #2563eb;
+            --success: #16a34a;
+            --danger: #dc2626;
+            --bg: #f8fafc;
+            --orange: #f97316;
+            --green: #15803d;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            color: #1e293b;
+        }
+        header {
+            background-color: var(--primary);
+            color: white;
+            padding: 15px;
+            text-align: center;
+            font-size: 1.2rem;
+            font-weight: bold;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: background-color 0.3s;
+        }
+        .sub-header {
+            color: white;
+            padding: 8px;
+            text-align: center;
+            font-size: 1rem;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+        .sub-header.master-sub {
+            background-color: var(--secondary);
+        }
+        .sub-header.client-sub {
+            background-color: var(--primary);
+        }
+        .container {
+            flex: 1;
+            max-width: 500px;
+            margin: 0 auto;
+            padding: 20px;
+            width: 100%;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            align-items: center;
+        }
+        .card {
+            background: #ffffff;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+            width: 100%;
+            text-align: center;
+            margin-bottom: 20px;
+            box-sizing: border-box;
+        }
+        .number-display {
+            font-size: 3rem;
+            font-weight: bold;
+            color: var(--primary);
+            margin: 5px 0;
+        }
+        .label {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #64748b;
+        }
+        .btn {
+            background-color: var(--secondary);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            width: 100%;
+            margin-top: 10px;
+            transition: background 0.2s;
+        }
+        .btn:active { transform: scale(0.98); }
+        .btn-success { background-color: var(--success); }
+        .btn-danger { background-color: var(--danger); }
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .logo-stand {
+            width: 70px;
+            height: 70px;
+            object-fit: cover;
+            margin: 0 auto 10px auto;
+            display: block;
+            border-radius: 8px;
+        }
+
+        .flashing-crepes { animation: pulse-flash-crepes 0.8s infinite alternate; }
+        @keyframes pulse-flash-crepes {
+            0% { background-color: var(--bg); }
+            100% { background-color: #ef4444; }
+        }
+
+        .flashing-arrosticini { animation: pulse-flash-arrosticini 0.8s infinite alternate; }
+        @keyframes pulse-flash-arrosticini {
+            0% { background-color: var(--bg); }
+            100% { background-color: #166534; }
+        }
+
+        .hidden { display: none !important; }
+        input, select {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 1rem;
+        }
+        .stand-card {
+            border-left: 6px solid #ccc;
+            margin-bottom: 15px;
+            text-align: left;
+        }
+        .stand-card.crepes { border-left-color: var(--orange); }
+        .stand-card.arrosticini { border-left-color: var(--green); }
+    </style>
+</head>
+<body>
+
+    <header id="header-title">Gestione Code</header>
+    <div id="sub-header-title" class="sub-header hidden">SELEZIONA STAND</div>
+
+    <div class="container">
+        <!-- SELETTORE INIZIALE (GENERALE) -->
+        <div id="view-selector" class="card hidden">
+            <h2>Seleziona Modalità</h2>
+            <p>Scegli il ruolo di accesso:</p>
+            
+            <button class="btn" style="background-color: var(--orange); margin-top: 10px;" onclick="goToUrl('client')">📱 Area Cliente (QR Unico)</button>
+            <div style="font-size: 0.85rem; color: #64748b; margin-top: 4px;">Permette di mettersi in coda per Crepes, Arrosticini o entrambi.</div>
+
+            <hr style="margin: 20px 0; border:0; border-top:1px solid #e2e8f0;">
+
+            <div style="text-align: left; font-weight: bold; color: var(--primary);">Accesso Master (Gestione Sportello)</div>
+            <button class="btn" style="background-color: var(--orange); font-size: 0.9rem; padding: 10px;" onclick="goToUrl('master', 'crepes')">Master Sportello Crepes</button>
+            <button class="btn" style="background-color: var(--green); font-size: 0.9rem; padding: 10px; margin-top: 5px;" onclick="goToUrl('master', 'arrosticini')">Master Sportello Arrosticini</button>
+        </div>
+
+        <!-- VISTA MASTER (GESTIONE FILA SINGOLA) -->
+        <div id="view-master" class="card hidden">
+            <div class="label">Numero Attuale in Servizio</div>
+            <div class="number-display" id="master-current">0</div>
+            
+            <div class="label" style="margin-top: 15px;">Persone in Attesa</div>
+            <div style="font-size: 2rem; font-weight: bold; color: var(--secondary);" id="master-waiting">0</div>
+
+            <div class="btn-group">
+                <button class="btn btn-danger" onclick="updateMaster(-1)">- Ticket</button>
+                <button class="btn btn-success" onclick="updateMaster(1)">+ Ticket</button>
+            </div>
+
+            <hr style="margin: 20px 0; border:0; border-top:1px solid #e2e8f0;">
+            
+            <div class="label">Impostazione Rapida</div>
+            <input type="number" id="custom-number" placeholder="Inserisci numero...">
+            <button class="btn" onclick="setCustomNumber()">Imposta Numero</button>
+            <button class="btn btn-danger" onclick="resetQueue()" style="margin-top: 10px; background-color: #64748b;">Azzera Contatore</button>
+        </div>
+
+        <!-- VISTA CLIENTE UNIFICATA (CREPES + ARROSTICINI) -->
+        <div id="view-client-hub" class="hidden" style="width: 100%;">
+            
+            <!-- CARD CREPES CLIENTE -->
+            <div class="card stand-card crepes">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <h3 style="margin: 0; color: var(--orange);">Stand Crepes</h3>
+                    <img src="logo.png" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;" alt="Crepes">
+                </div>
+                
+                <div style="display: flex; justify-content: space-around; margin: 15px 0; text-align: center;">
+                    <div>
+                        <div class="label">Chiamato</div>
+                        <div style="font-size: 1.8rem; font-weight: bold; color: var(--primary);" id="client-crepes-called">0</div>
+                    </div>
+                    <div>
+                        <div class="label">Il tuo numero</div>
+                        <div style="font-size: 1.8rem; font-weight: bold; color: var(--orange);" id="client-crepes-myticket">-</div>
+                    </div>
+                </div>
+
+                <div id="crepes-noticket-section">
+                    <button class="btn" style="background-color: var(--orange);" onclick="takeTicket('crepes')">Prendi Numeretto Crepes</button>
+                </div>
+
+                <div id="crepes-waiting-section" class="hidden" style="text-align: center; margin-top: 10px;">
+                    <div class="label" id="crepes-label-ahead">Persone prima di te</div>
+                    <div style="font-size: 1.4rem; font-weight: bold; color: #d97706;" id="crepes-people-ahead">-</div>
+                    <button class="btn btn-danger" onclick="abandonQueue('crepes')" style="background-color: #64748b; font-size: 0.8rem; padding: 6px; margin-top: 8px;">Annulla / Abbandona Crepes</button>
+                </div>
+
+                <div id="crepes-turn-section" class="hidden" style="text-align: center; margin-top: 10px; background: #fef08a; padding: 10px; border-radius: 6px;">
+                    <p style="color: #b45309; font-weight: bold; margin: 0 0 8px 0;">È IL TUO TURNO PER LE CREPES!</p>
+                    <button class="btn btn-success" onclick="confirmArrival('crepes')">Conferma Arrivo</button>
+                </div>
+            </div>
+
+            <!-- CARD ARROSTICINI CLIENTE -->
+            <div class="card stand-card arrosticini">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <h3 style="margin: 0; color: var(--green);">Stand Arrosticini</h3>
+                    <img src="logo-arrosticini.png" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;" alt="Arrosticini">
+                </div>
+                
+                <div style="display: flex; justify-content: space-around; margin: 15px 0; text-align: center;">
+                    <div>
+                        <div class="label">Chiamato</div>
+                        <div style="font-size: 1.8rem; font-weight: bold; color: var(--primary);" id="client-arrosticini-called">0</div>
+                    </div>
+                    <div>
+                        <div class="label">Il tuo numero</div>
+                        <div style="font-size: 1.8rem; font-weight: bold; color: var(--green);" id="client-arrosticini-myticket">-</div>
+                    </div>
+                </div>
+
+                <div id="arrosticini-noticket-section">
+                    <button class="btn" style="background-color: var(--green);" onclick="takeTicket('arrosticini')">Prendi Numeretto Arrosticini</button>
+                </div>
+
+                <div id="arrosticini-waiting-section" class="hidden" style="text-align: center; margin-top: 10px;">
+                    <div class="label" id="arrosticini-label-ahead">Persone prima di te</div>
+                    <div style="font-size: 1.4rem; font-weight: bold; color: #15803d;" id="arrosticini-people-ahead">-</div>
+                    <button class="btn btn-danger" onclick="abandonQueue('arrosticini')" style="background-color: #64748b; font-size: 0.8rem; padding: 6px; margin-top: 8px;">Annulla / Abbandona Arrosticini</button>
+                </div>
+
+                <div id="arrosticini-turn-section" class="hidden" style="text-align: center; margin-top: 10px; background: #bbf7d0; padding: 10px; border-radius: 6px;">
+                    <p style="color: #166534; font-weight: bold; margin: 0 0 8px 0;">È IL TUO TURNO PER GLI ARROSTICINI!</p>
+                    <button class="btn btn-success" onclick="confirmArrival('arrosticini')">Conferma Arrivo</button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            databaseURL: "https://mioeliminafila-default-rtdb.europe-west1.firebasedatabase.app"
+        };
+
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const db = firebase.database();
+
+        let currentRole = null;
+        let currentStand = null; // Usato solo se role === 'master'
+        let alertInterval = null;
+
+        // Stato locale cliente
+        let clientData = {
+            crepes: { ticket: null, called: 0 },
+            arrosticini: { ticket: null, called: 0 }
+        };
+
+        function goToUrl(role, stand = '') {
+            let url = `?role=${role}`;
+            if (stand) url += `&stand=${stand}`;
+            window.location.href = url;
+        }
+
+        function initApp() {
+            const urlParams = new URLSearchParams(window.location.search);
+            currentRole = urlParams.get('role');
+            currentStand = urlParams.get('stand');
+
+            if (currentRole === 'master' && (currentStand === 'crepes' || currentStand === 'arrosticini')) {
+                setupMasterView();
+            } else if (currentRole === 'client' || !currentRole) {
+                // Se non è specificato il ruolo o è client, apriamo la schermata unificata cliente
+                setupClientHubView();
+            } else {
+                document.getElementById('view-selector').classList.remove('hidden');
+            }
+        }
+
+        function setupMasterView() {
+            document.getElementById('view-selector').classList.add('hidden');
+            document.getElementById('view-master').classList.remove('hidden');
+            
+            const headerEl = document.getElementById('header-title');
+            const subHeaderEl = document.getElementById('sub-header-title');
+
+            subHeaderEl.classList.remove('hidden');
+            subHeaderEl.innerText = `MASTER SPORTELLO: ${currentStand.toUpperCase()}`;
+            subHeaderEl.className = "sub-header master-sub";
+            headerEl.innerText = `Gestione Code - MASTER`;
+
+            initMasterListeners();
+        }
+
+        function setupClientHubView() {
+            document.getElementById('view-selector').classList.add('hidden');
+            document.getElementById('view-client-hub').classList.remove('hidden');
+
+            const headerEl = document.getElementById('header-title');
+            const subHeaderEl = document.getElementById('sub-header-title');
+
+            subHeaderEl.classList.remove('hidden');
+            subHeaderEl.innerText = `AREA CLIENTE - SELEZIONE CODE`;
+            subHeaderEl.className = "sub-header client-sub";
+            headerEl.innerText = `Eliminafila Festival`;
+
+            // Carica i ticket salvati nel browser
+            clientData.crepes.ticket = localStorage.getItem('my_ticket_crepes') ? parseInt(localStorage.getItem('my_ticket_crepes')) : null;
+            clientData.arrosticini.ticket = localStorage.getItem('my_ticket_arrosticini') ? parseInt(localStorage.getItem('my_ticket_arrosticini')) : null;
+
+            initClientListeners('crepes');
+            initClientListeners('arrosticini');
+        }
+
+        window.onload = function() {
+            initApp();
+        };
+
+        // --- LOGICA MASTER ---
+        function updateMaster(change) {
+            db.ref(`queues/${currentStand}/current`).transaction(current => {
+                let val = (current || 0) + change;
+                return val < 0 ? 0 : val;
+            });
+        }
+
+        function setCustomNumber() {
+            let val = parseInt(document.getElementById('custom-number').value);
+            if (!isNaN(val) && val >= 0) {
+                db.ref(`queues/${currentStand}/current`).set(val);
+                document.getElementById('custom-number').value = '';
+            }
+        }
+
+        function resetQueue() {
+            if(confirm(`Vuoi azzerare il contatore e l'ultimo ticket per lo stand ${currentStand}?`)) {
+                db.ref(`queues/${currentStand}`).set({ current: 0, lastTicket: 0 });
+                localStorage.removeItem(`my_ticket_${currentStand}`);
+                location.reload();
+            }
+        }
+
+        function initMasterListeners() {
+            db.ref(`queues/${currentStand}`).on('value', snapshot => {
+                const data = snapshot.val() || { current: 0, lastTicket: 0 };
+                let current = data.current || 0;
+                let lastTicket = data.lastTicket || 0;
+
+                document.getElementById('master-current').innerText = current;
+                let waiting = Math.max(0, lastTicket - current);
+                document.getElementById('master-waiting').innerText = waiting;
+            });
+        }
+
+        // --- LOGICA CLIENTE UNIFICATA ---
+        function initClientListeners(stand) {
+            db.ref(`queues/${stand}`).on('value', snapshot => {
+                const data = snapshot.val() || { current: 0, lastTicket: 0 };
+                clientData[stand].called = data.current || 0;
+
+                document.getElementById(`client-${stand}-called`).innerText = clientData[stand].called;
+                updateClientStandUI(stand);
+                checkGlobalAlerts();
+            });
+        }
+
+        function updateClientStandUI(stand) {
+            const ticket = clientData[stand].ticket;
+            const called = clientData[stand].called;
+
+            const ticketDisplay = document.getElementById(`client-${stand}-myticket`);
+            const noTicketSec = document.getElementById(`${stand}-noticket-section`);
+            const waitingSec = document.getElementById(`${stand}-waiting-section`);
+            const turnSec = document.getElementById(`${stand}-turn-section`);
+            const aheadDisplay = document.getElementById(`${stand}-people-ahead`);
+            const labelAhead = document.getElementById(`${stand}-label-ahead`);
+
+            if (ticket !== null && !isNaN(ticket)) {
+                ticketDisplay.innerText = ticket;
+                noTicketSec.classList.add('hidden');
+
+                if (ticket < called) {
+                    // Turno passato
+                    ticketDisplay.style.color = "var(--danger)";
+                    waitingSec.classList.add('hidden');
+                    turnSec.classList.add('hidden');
+                } else if (ticket === called) {
+                    // È il turno!
+                    ticketDisplay.style.color = "var(--success)";
+                    waitingSec.classList.add('hidden');
+                    turnSec.classList.remove('hidden');
+                } else {
+                    // In attesa
+                    ticketDisplay.style.color = stand === 'crepes' ? 'var(--orange)' : 'var(--green)';
+                    waitingSec.classList.remove('hidden');
+                    turnSec.classList.add('hidden');
+                    let ahead = ticket - called;
+                    aheadDisplay.innerText = ahead >= 0 ? ahead : 0;
+                }
+            } else {
+                ticketDisplay.innerText = "-";
+                ticketDisplay.style.color = "#64748b";
+                noTicketSec.classList.remove('hidden');
+                waitingSec.classList.add('hidden');
+                turnSec.classList.add('hidden');
+            }
+        }
+
+        function takeTicket(stand) {
+            const queueRef = db.ref(`queues/${stand}`);
+            queueRef.transaction(data => {
+                if (!data) data = { current: 0, lastTicket: 0 };
+                let current = data.current || 0;
+                let last = data.lastTicket || 0;
+                let nextTicket = Math.max(current + 1, last + 1);
+                data.lastTicket = nextTicket;
+                return data;
+            }, (error, committed, snapshot) => {
+                if (committed) {
+                    let newT = snapshot.child('lastTicket').val();
+                    clientData[stand].ticket = newT;
+                    localStorage.setItem(`my_ticket_${stand}`, newT);
+                    updateClientStandUI(stand);
+                }
+            });
+        }
+
+        function confirmArrival(stand) {
+            localStorage.removeItem(`my_ticket_${stand}`);
+            clientData[stand].ticket = null;
+            updateClientStandUI(stand);
+            checkGlobalAlerts();
+            alert(`Hai confermato il turno per ${stand}! Avvicinati allo sportello.`);
+        }
+
+        function abandonQueue(stand) {
+            if (confirm(`Vuoi abbandonare la coda per ${stand}?`)) {
+                db.ref(`queues/${stand}`).transaction(data => {
+                    if (data && data.lastTicket > 0) {
+                        data.lastTicket -= 1;
+                        if (data.lastTicket < data.current) data.lastTicket = data.current;
+                    }
+                    return data;
+                }, () => {
+                    localStorage.removeItem(`my_ticket_${stand}`);
+                    clientData[stand].ticket = null;
+                    updateClientStandUI(stand);
+                    checkGlobalAlerts();
+                });
+            }
+        }
+
+        function checkGlobalAlerts() {
+            let isMyTurn = false;
+            let flashStand = null;
+
+            ['crepes', 'arrosticini'].forEach(s => {
+                if (clientData[s].ticket !== null && Number(clientData[s].ticket) === Number(clientData[s].called)) {
+                    isMyTurn = true;
+                    flashStand = s;
+                }
+            });
+
+            if (isMyTurn) {
+                document.body.className = flashStand === 'crepes' ? 'flashing-crepes' : 'flashing-arrosticini';
+                if (!alertInterval) startPersistentAlert();
+            } else {
+                document.body.className = "";
+                stopPersistentAlert();
+            }
+        }
+
+        function startPersistentAlert() {
+            triggerDrinnn();
+            alertInterval = setInterval(() => { triggerDrinnn(); }, 1500);
+        }
+
+        function stopPersistentAlert() {
+            if (alertInterval) {
+                clearInterval(alertInterval);
+                alertInterval = null;
+            }
+        }
+
+        function triggerDrinnn() {
+            if ("vibrate" in navigator) {
+                try { navigator.vibrate([300, 100, 300, 100, 300, 100]); } catch (e) {}
+            }
+            try {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (AudioContext) {
+                    const ctx = new AudioContext();
+                    let delay = 0;
+                    for (let i = 0; i < 5; i++) {
+                        playTone(ctx, 1800, delay, 0.08);
+                        playTone(ctx, 2200, delay + 0.08, 0.08);
+                        delay += 0.16;
+                    }
+                }
+            } catch (e) {}
+        }
+
+        function playTone(ctx, frequency, startTime, duration) {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.value = frequency;
+            gain.gain.setValueAtTime(0.2, ctx.currentTime + startTime);
+            gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + startTime + duration);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(ctx.currentTime + startTime);
+            osc.stop(ctx.currentTime + startTime + duration);
+        }
+    </script>
+</body>
+</html>
